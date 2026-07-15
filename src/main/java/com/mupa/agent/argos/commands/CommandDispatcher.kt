@@ -237,6 +237,16 @@ class CommandDispatcher(private val context: Context) {
                 if (err == null) CommandResult("success", "brightness_set") else CommandResult("failed", err)
             }
 
+            "set_wifi", "definir_wifi", "configurar_wifi", "wifi_set" -> {
+                val payload = params.optJSONObject("payload") ?: params
+                val ssid = payload.optString("ssid", payload.optString("wifi_ssid", "")).trim()
+                val password = payload.optString("password", payload.optString("wifi_password", ""))
+                if (ssid.isBlank()) return CommandResult("failed", "ssid_empty")
+                val ok = com.mupa.agent.argos.wifi.WifiConfig(appContext).setAndConnect(ssid, password)
+                if (ok) CommandResult("success", "wifi_set:$ssid")
+                else CommandResult("failed", "wifi_connect_failed:$ssid")
+            }
+
             "keep_awake" -> {
                 val enabled = params.optBoolean("enabled", params.optBoolean("value", true))
                 runBlocking { settings.setKeepAwakeEnabled(enabled) }

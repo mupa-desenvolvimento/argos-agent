@@ -79,6 +79,21 @@ class WifiConfig(private val context: Context) {
         }
     }
 
+    /**
+     * Explicit "set WiFi now" — used by the console `set_wifi` command. Always saves and
+     * attempts a connect (unlike applyRemoteCredentials, which no-ops when unchanged).
+     * Returns true when the connect attempt succeeded.
+     */
+    fun setAndConnect(ssid: String, password: String): Boolean {
+        val newSsid = ssid.trim()
+        if (newSsid.isBlank()) return false
+        setCredentials(newSsid, password)
+        Log.i(tag, "set_wifi: conectando a $newSsid")
+        val ok = wifiManager.connectToWifi(newSsid, password)
+        if (ok) Log.i(tag, "set_wifi ok: $newSsid") else Log.w(tag, "set_wifi falhou: $newSsid")
+        return ok
+    }
+
     fun clearCredentials() {
         prefs.edit()
             .remove("wifi_ssid")
