@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.REQUEST_DELETE_PACKAGES" />
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
+    <uses-permission android:name="com.mupa.player.enterprise.permission.SET_DEV_MODE" />
+    <uses-permission android:name="com.mupa.argos.remote.permission.AGENT_ACCESS" />
+    <uses-permission
+        android:name="android.permission.WRITE_SECURE_SETTINGS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+
+    <permission
+        android:name="com.mupa.permission.ACCESS_DEVICE_ID"
+        android:protectionLevel="signature" />
+
+    <application
+        android:name=".ArgosApplication"
+        android:allowBackup="false"
+        android:icon="@drawable/icon_argos"
+        android:roundIcon="@drawable/icon_argos"
+        android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:theme="@style/Theme.Argos">
+
+        <activity
+            android:name=".ui.ArgosLauncherActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboardHidden"
+            android:exported="true"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity
+            android:name=".ui.SetupWizardActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboardHidden"
+            android:exported="true" />
+
+        <activity
+            android:name=".ui.LockTaskBridgeActivity"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <activity
+            android:name=".admin.AdminCenterActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboardHidden"
+            android:exported="false" />
+
+        <activity
+            android:name=".admin.FactoryResetActivity"
+            android:exported="true"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:excludeFromRecents="true" />
+
+        <activity
+            android:name=".admin.KioskAppsActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|density|uiMode|keyboardHidden"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receivers.BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receivers.PackageInstallReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.mupa.agent.argos.action.PACKAGE_INSTALL_COMMIT" />
+                <action android:name="com.mupa.agent.argos.action.PACKAGE_UNINSTALL_COMMIT" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receivers.AdbCommandReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.mupa.agent.argos.action.ADB_COMMAND" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".receivers.MaintenanceBarcodeReceiver"
+            android:exported="true"
+            android:permission="com.mupa.player.enterprise.permission.SET_DEV_MODE">
+            <intent-filter>
+                <action android:name="com.mupa.agent.argos.action.BARCODE_TRIGGER" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Separate class required — Android manifest merger rejects duplicate receiver
+             entries for the same class. This thin wrapper receives MEFERI ScanWizard
+             broadcasts (android.intent.action.MEF_ACTION) without the custom permission
+             restriction, since the ScanWizard system service cannot hold app-defined
+             permissions. The permission guard on MaintenanceBarcodeReceiver still protects
+             the internal BARCODE_TRIGGER path. -->
+        <receiver
+            android:name=".receivers.MeferiScanReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MEF_ACTION" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".mdm.ArgosDeviceAdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/argos_device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <service
+            android:name=".accessibility.ArgosAccessibilityService"
+            android:exported="false"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/argos_accessibility_service" />
+        </service>
+
+        <service
+            android:name=".services.ArgosForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync|location" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/argos_file_paths" />
+        </provider>
+
+        <provider
+            android:name=".providers.DeviceIdentityProvider"
+            android:authorities="com.mupa.agent.argos.identity"
+            android:exported="true"
+            android:grantUriPermissions="false"
+            android:readPermission="com.mupa.permission.ACCESS_DEVICE_ID" />
+
+        <!-- Bare hardware-serial bridge for MPlayer (no Device Owner there, can't read
+             Build.getSerial() itself on Android 10+) — see ARGOS_DEVICE_SERIAL_PROVIDER.md
+             in the mplayer repo for the full contract. Read-only, no permission required:
+             the value is the same serial already visible via `adb devices -l` / any MDM
+             inventory, not sensitive. -->
+        <provider
+            android:name=".provider.DeviceInfoProvider"
+            android:authorities="com.mupa.agent.argos.provider.device"
+            android:exported="true" />
+
+    </application>
+
+</manifest>

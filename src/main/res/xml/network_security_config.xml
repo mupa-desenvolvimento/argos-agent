@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- HTTPS-only by default for all real network traffic (Supabase, ARGOS API, OTA, Firebase). -->
+    <base-config cleartextTrafficPermitted="false" />
+    <!-- Only loopback (local debugging/dev tooling) is allowed over plain HTTP. -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="false">127.0.0.1</domain>
+    </domain-config>
+</network-security-config>

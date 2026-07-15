@@ -1,0 +1,30 @@
+# Gradle / build
+.gradle/
+.gradle-home/
+build/
+*/build/
+libs/*.aar
+
+# Local config & secrets
+local.properties
+keystore/
+*.jks
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs & crash dumps
+*.log
+hs_err_pid*.log
+replay_pid*.log
+boot-crash-logcat.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Large data exports / temp
+*-rtdb-*-export.json
