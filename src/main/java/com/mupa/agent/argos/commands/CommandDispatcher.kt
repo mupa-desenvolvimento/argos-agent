@@ -497,6 +497,21 @@ class CommandDispatcher(private val context: Context) {
                 CommandResult("success", "datawedge_restored")
             }
 
+            "dw_set_config", "datawedge_set_config", "configurar_datawedge" -> {
+                val cfg = params.optJSONObject("config") ?: params.optJSONObject("payload") ?: params
+                val ok = com.mupa.agent.argos.datawedge.DataWedgeManager(appContext).setConfig(cfg)
+                if (ok) CommandResult("success", "datawedge_config_applied:${cfg.optString("profile")}")
+                else CommandResult("failed", "profile_empty_or_invalid")
+            }
+
+            "dw_create_profile", "datawedge_create_profile", "criar_perfil_datawedge" -> {
+                val payload = params.optJSONObject("payload") ?: params
+                val profile = payload.optString("profile", payload.optString("profile_name", payload.optString("name", ""))).trim()
+                if (profile.isBlank()) return CommandResult("failed", "profile_name_empty")
+                val ok = com.mupa.agent.argos.datawedge.DataWedgeManager(appContext).createProfile(profile)
+                if (ok) CommandResult("success", "profile_created:$profile") else CommandResult("failed", "create_failed")
+            }
+
             "dw_get_info", "datawedge_get_info", "datawedge_status", "status_datawedge" -> {
                 val info = com.mupa.agent.argos.datawedge.DataWedgeManager(appContext).getVersionInfo()
                 if (info != null) CommandResult("success", info.toString())
