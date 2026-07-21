@@ -1,6 +1,7 @@
 package com.mupa.agent.argos.core
 
 import android.content.Context
+import android.os.Build
 import com.mupa.agent.argos.BuildConfig
 import com.mupa.agent.argos.apps.ApplicationManager
 import com.mupa.agent.argos.database.ArgosDatabaseProvider
@@ -197,6 +198,7 @@ class ConfigurationEngine(
         }
 
         applyWifiFromConfig(deviceConfig)
+        applyDataWedgeFromConfig(deviceConfig)
 
         // Without this, an updated whitelist is only persisted locally — LockTask keeps
         // enforcing whatever package set was active when kiosk mode was last (re)applied.
@@ -307,6 +309,21 @@ class ConfigurationEngine(
      * fields — accept both. Connecting is delegated to WifiConfig, which only reconnects when
      * the credentials actually changed.
      */
+    /**
+     * Applies DataWedge configuration from the group setup. Only runs on Zebra devices
+     * (where DataWedge is pre-installed). The web writes `datawedge_config` into device_config
+     * with the same shape that DataWedgeManager.setConfig() expects.
+     */
+    private fun applyDataWedgeFromConfig(deviceConfig: JSONObject) {
+        val dwConfig = deviceConfig.optJSONObject("datawedge_config") ?: return
+        val manufacturer = Build.MANUFACTURER?.lowercase() ?: ""
+        if ("zebra" !in manufacturer && "symbol" !in manufacturer) return
+        runCatching {
+            com.mupa.agent.argos.datawedge.DataWedgeManager(appContext).setConfig(dwConfig)
+            android.util.Log.i("ConfigurationEngine", "datawedge_config_applied profile=${dwConfig.optString("profile")}")
+        }.onFailure { android.util.Log.w("ConfigurationEngine", "datawedge_config_failed: ${it.message}") }
+    }
+
     private fun applyWifiFromConfig(deviceConfig: JSONObject) {
         val wifiObj = deviceConfig.optJSONObject("default_wifi")
         val ssid = (wifiObj?.optString("ssid") ?: deviceConfig.optString("default_wifi_ssid")).trim()
