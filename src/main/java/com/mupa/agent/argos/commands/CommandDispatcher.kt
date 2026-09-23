@@ -416,6 +416,32 @@ class CommandDispatcher(private val context: Context) {
                 CommandResult("success", if (opened) "armed_and_opened" else "armed")
             }
 
+            "remote_support_accept", "remote_support_request" -> {
+                // Documented in AGENT_COMMANDS.md as "idem [anydesk_accept], mas para o app
+                // ARGOS Remote" but never actually implemented — this fills that gap.
+                //
+                // Unlike AnyDesk, ARGOS Remote already runs its own accessibility-based
+                // auto-consent for the MediaProjection dialog (RemoteAccessibilityService +
+                // GatewayConfig.isAutoConsent, on by default for managed fleets) — so this
+                // agent doesn't need to arm a click on its behalf like armAnyDeskAutoClick()
+                // does. The only thing actually missing was Lock Task blocking the consent
+                // Activity from appearing over the kiosk at all: confirmed by hand on a real
+                // unit that once Lock Task is released, ARGOS Remote's own auto-consent
+                // completes the rest with zero further input. requestLockTaskStop() is
+                // self-healing — ArgosLauncherActivity.onResume() re-arms startLockTask()
+                // the moment it naturally regains foreground, so no explicit re-lock call is
+                // needed here (same as anydesk_accept/uninstall_app above).
+                val targetPkg = "com.mupa.argos.remote"
+                val installed = runCatching { appContext.packageManager.getPackageInfo(targetPkg, 0) }.isSuccess
+                if (!installed) {
+                    return CommandResult("failed", "argos_remote_not_installed")
+                }
+
+                requestLockTaskStop()
+                val opened = apps.open(targetPkg)
+                CommandResult("success", if (opened) "unlocked_and_opened" else "unlocked")
+            }
+
             "maintenance_on", "maintenance_off" -> {
                 CommandResult("failed", "not_implemented")
             }
