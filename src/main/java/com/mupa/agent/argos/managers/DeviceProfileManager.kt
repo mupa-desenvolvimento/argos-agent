@@ -10,9 +10,11 @@ class DeviceProfileManager {
         val manufacturer = Build.MANUFACTURER.orEmpty().trim()
         val model = Build.MODEL.orEmpty().trim()
         val brand = Build.BRAND.orEmpty().trim()
+        val fingerprint = Build.FINGERPRINT.orEmpty().trim()
         val normalizedManufacturer = manufacturer.lowercase(Locale.ROOT)
         val normalizedModel = model.lowercase(Locale.ROOT)
         val normalizedBrand = brand.lowercase(Locale.ROOT)
+        val normalizedFingerprint = fingerprint.lowercase(Locale.ROOT)
 
         val family = when {
             normalizedModel.contains("mc45") -> AgentDeviceFamily.meferi_mc45
@@ -23,7 +25,11 @@ class DeviceProfileManager {
             normalizedManufacturer.contains("gertec") && normalizedModel.contains("sk210") -> AgentDeviceFamily.gertec_sk210
             normalizedManufacturer.contains("gertec") && normalizedModel.contains("gbot") -> AgentDeviceFamily.gertec_gbot
             normalizedManufacturer.contains("gertec") -> AgentDeviceFamily.gertec_generic
-            normalizedModel.contains("x96") || normalizedBrand.contains("droidlogic") -> AgentDeviceFamily.x96_tv_box
+            normalizedModel.contains("x96") ||
+                normalizedModel.contains("x96max") ||
+                normalizedBrand.contains("droidlogic") ||
+                normalizedManufacturer.contains("droidlogic") ||
+                normalizedFingerprint.contains("droidlogic") -> AgentDeviceFamily.x96_tv_box
             normalizedManufacturer.contains("bluebird") && normalizedModel.contains("st103") -> AgentDeviceFamily.bluebird_st103
             normalizedManufacturer.contains("bluebird") -> AgentDeviceFamily.bluebird_generic
             normalizedManufacturer.isNotBlank() || normalizedModel.isNotBlank() -> AgentDeviceFamily.generic_android

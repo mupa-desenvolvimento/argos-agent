@@ -9,6 +9,7 @@ import androidx.core.content.FileProvider
 import com.mupa.agent.argos.apps.ApplicationManager
 import com.mupa.agent.argos.commands.LocalCommandStore
 import com.mupa.agent.argos.managers.DeviceProfileManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.models.AgentDeviceFamily
 import com.mupa.agent.argos.remote.RemoteAccessManager
@@ -45,7 +46,7 @@ class ProvisioningManager(context: Context) {
         val t0 = SystemClock.elapsedRealtime()
 
         val anyDeskPkg = "com.anydesk.anydeskandroid"
-        val mplayerPkg = "com.mupa.player.enterprise"
+        val mplayerPkg = PlayerAppConstants.resolvePackage()
         val zebraDataWedgePkgs = listOf("com.symbol.datawedge", "com.zebra.datawedge")
         val deviceProfile = DeviceProfileManager().resolve()
 

@@ -51,6 +51,7 @@ import androidx.core.graphics.drawable.toBitmap
 import com.mupa.agent.argos.R
 import com.mupa.agent.argos.launcher.KioskPolicyManager
 import com.mupa.agent.argos.launcher.WhitelistManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.security.AdminAuthManager
 import com.mupa.agent.argos.security.AdminAuthResult
 import com.mupa.agent.argos.ui.compose.GlassCard
@@ -60,7 +61,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-private const val PLAYER_PACKAGE = "com.mupa.player.enterprise"
+private val PLAYER_PACKAGE: String
+    get() = PlayerAppConstants.resolvePackage()
 
 data class KioskAppItem(
     val label: String,

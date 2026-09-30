@@ -10,6 +10,7 @@ import android.Manifest
 import com.google.firebase.database.DatabaseReference
 import com.mupa.agent.argos.BuildConfig
 import com.mupa.agent.argos.firebase.FirebaseRuntimeMode
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import com.mupa.agent.argos.provisioning.ApkInstallManager
 import com.mupa.agent.argos.provisioning.ApkInstallRequest
@@ -203,6 +204,74 @@ class OtaManager(context: Context) {
         }
     }
 
+    /**
+     * Always-on player auto-update: resolves which player package this device should run
+     * (com.mupa.player.x96 on X96/Amlogic boxes, com.mupa.player.enterprise otherwise via
+     * PlayerAppConstants), checks argos_ota/latest_versions for that app's newest published
+     * version, and — if it's newer than what's installed — enqueues it through the same
+     * download -> checksum -> backup pipeline handleSpec() already implements for admin-pushed
+     * OTA specs. tickIfDue() then drives the actual install (+ rollback on failure) on its own
+     * schedule. Unlike onRemoteOtaSnapshot(), this needs no per-device spec to be published by
+     * an admin — it always targets whatever the catalog currently considers latest.
+     */
+    suspend fun checkForPlayerUpdate(
+        deviceId: String,
+        deviceRootRef: DatabaseReference,
+    ) = withContext(Dispatchers.IO) {
+        val appKey = if (PlayerAppConstants.isX96()) "mplayer_x96" else "mplayer"
+        val pkg = PlayerAppConstants.resolvePackage()
+        val entry = fetchLatestCatalogEntry(appKey) ?: return@withContext
+
+        val versionCode = entry.optLong("version_code", entry.optLong("versionCode", -1L))
+        val versionName = entry.optString("version_name", entry.optString("versionName", "")).trim()
+        val apkUrl = entry.optString("apk_url", entry.optString("url", "")).trim()
+        val checksum = entry.optString("checksum", entry.optString("sha256", "")).trim()
+        if (versionCode <= 0L || versionName.isBlank() || apkUrl.isBlank() || checksum.isBlank()) return@withContext
+
+        val installedVc = getInstalledVersionCode(pkg)
+        if (installedVc >= versionCode) return@withContext
+
+        val existing = readState().optJSONObject("apps")?.optJSONObject(appKey)
+        val existingStatus = existing?.optString("status", "").orEmpty()
+        if (existingStatus in ACTIVE_OTA_STATUSES && existing?.optLong("version_code", -1L) == versionCode) {
+            return@withContext
+        }
+
+        val spec = OtaSpec(
+            app = appKey,
+            packageName = pkg,
+            versionName = versionName,
+            versionCode = versionCode,
+            apkUrl = apkUrl,
+            checksumSha256 = checksum,
+            mandatory = true,
+            scheduledAtMs = 0L,
+            releaseDate = entry.optString("created_at", "").trim(),
+            changelog = emptyList(),
+        )
+        runCatching { handleSpec(deviceId, deviceRootRef, System.currentTimeMillis(), spec) }
+    }
+
+    private fun fetchLatestCatalogEntry(appKey: String): JSONObject? {
+        val dbUrl = BuildConfig.FIREBASE_DATABASE_URL.trim().trimEnd('/')
+        if (dbUrl.isBlank()) return null
+        return runCatching {
+            val conn = (URL("$dbUrl/argos_ota/latest_versions/$appKey.json").openConnection() as HttpURLConnection).apply {
+                requestMethod = "GET"
+                connectTimeout = 8_000
+                readTimeout = 10_000
+            }
+            val code = conn.responseCode
+            if (code !in 200..299) {
+                conn.disconnect()
+                return@runCatching null
+            }
+            val body = conn.inputStream.bufferedReader().use { it.readText() }
+            conn.disconnect()
+            if (body.isBlank() || body == "null") null else JSONObject(body)
+        }.getOrNull()
+    }
+
     private fun parseSpecs(root: JSONObject): List<OtaSpec> {
         val list = ArrayList<OtaSpec>()
 
@@ -267,7 +336,9 @@ class OtaManager(context: Context) {
         val p = provided.trim()
         if (p.isNotBlank()) return p
         if (a == "argos_agent" || a == "agent" || a == "argos") return appContext.packageName
-        if (a == "mplayer" || a == "mupa_player" || a == "com.mupa.mplayer") return "com.mupa.mplayer"
+        if (a == "mplayer" || a == "mplayer_x96" || a == "mupa_player" || a == "com.mupa.mplayer") {
+            return PlayerAppConstants.resolvePackage()
+        }
         return ""
     }
 

@@ -7,6 +7,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import com.mupa.agent.argos.ArgosApplication
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import com.mupa.agent.argos.services.ArgosForegroundService
@@ -96,7 +97,7 @@ class ArgosLauncherActivity : ComponentActivity() {
         if (!isDeviceOwner) return
         val dpm = DeviceOwnerPolicyManager(applicationContext)
         dpm.updateLockTaskPackages(packageName, settings.getAllowedPackagesCached())
-        dpm.tryUnsuspendApp(packageName, "com.mupa.player.enterprise")
+        dpm.tryUnsuspendApp(packageName, PlayerAppConstants.resolveInstalledPackage(applicationContext))
         runCatching { startLockTask() }
     }
 

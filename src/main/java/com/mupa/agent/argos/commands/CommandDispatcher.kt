@@ -8,6 +8,7 @@ import android.provider.Settings
 import com.mupa.agent.argos.accessibility.ArgosAccessibilityService
 import com.mupa.agent.argos.apps.ApplicationManager
 import com.mupa.agent.argos.launcher.WhitelistManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import com.mupa.agent.argos.provisioning.ApkInstallManager
@@ -34,7 +35,8 @@ class CommandDispatcher(private val context: Context) {
     private val dpm = DeviceOwnerPolicyManager(appContext)
     private val whitelist = WhitelistManager(appContext)
     private val anyDeskPkg = "com.anydesk.anydeskandroid"
-    private val defaultManagedAppPkg = "com.mupa.player.enterprise"
+    private val defaultManagedAppPkg: String
+        get() = PlayerAppConstants.resolvePackage()
     // Only the agent's own package belongs here (see the identical fix + explanation in
     // ApkInstallManager.kt's selfPackageAliases). "com.mupa.player.enterprise" used to be
     // listed too, which made normalizeExpectedPackage() rewrite every MPlayer install_apk
@@ -668,7 +670,7 @@ class CommandDispatcher(private val context: Context) {
         }
         return when (commandName.trim().lowercase()) {
             "atualizar_agent", "update_agent" -> appContext.packageName
-            "atualizar_mplayer" -> "com.mupa.mplayer"
+            "atualizar_mplayer" -> PlayerAppConstants.resolvePackage()
             else -> ""
         }
     }

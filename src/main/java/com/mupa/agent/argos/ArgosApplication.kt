@@ -7,11 +7,13 @@ import android.util.Log
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.mupa.agent.argos.argoscore.ArgosCoreClient
 import com.mupa.agent.argos.commands.ArgosCommandScheduler
 import com.mupa.agent.argos.core.AgentRuntime
 import com.mupa.agent.argos.managers.DeviceIdentityManager
 import com.mupa.agent.argos.managers.DeviceProfileManager
 import com.mupa.agent.argos.managers.MeferiRemoteAuthorizer
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import com.mupa.agent.argos.permissions.PermissionManager
@@ -67,13 +69,21 @@ class ArgosApplication : Application() {
             val selfPkg = packageName
             if (dpm.isDeviceOwner(selfPkg)) {
                 dpm.applyBaselineRestrictions(selfPkg)
-                dpm.tryUnsuspendApp(selfPkg, PLAYER_PACKAGE)
+                dpm.tryUnsuspendApp(selfPkg, PlayerAppConstants.resolveInstalledPackage(this))
                 if (locked) dpm.updateLockTaskPackages(selfPkg, settings.getAllowedPackagesCached())
             }
 
             if (pm.criticalReady()) {
                 ArgosCommandScheduler.ensurePeriodic(this)
                 AgentRuntime.bootstrap(this)
+                // Fase 0 do ARGOS Core — no-op em qualquer dispositivo onde
+                // ArgosCoreConfig não foi explicitamente ligado via ADB.
+                runCatching { ArgosCoreClient.startIfEnabled(this) }
+                // Acesso remoto (ver remoteaccess/) — no-op se o aparelho
+                // ainda não tiver um token (ver GroupLinkScreen, que o obtém
+                // sozinho ao vincular a um grupo); em reinícios seguintes,
+                // isto reconecta sem precisar vincular de novo.
+                runCatching { com.mupa.agent.argos.remoteaccess.net.RemoteConnectionService.startIfEnrolled(this) }
                 val workRequest = PeriodicWorkRequestBuilder<WatchdogWorker>(15, TimeUnit.MINUTES).build()
                 WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                     WatchdogWorker.UNIQUE_NAME,
@@ -113,7 +123,6 @@ class ArgosApplication : Application() {
         private const val DEFAULT_COMPANY_CODE = "BYPASS"
         private const val DEFAULT_GROUP_NAME = "default"
         private const val DEFAULT_DEVICE_TYPE = "mplayer"
-        private const val PLAYER_PACKAGE = "com.mupa.player.enterprise"
         private const val SETTINGS_PACKAGE = "com.android.settings"
         private const val ANYDESK_PACKAGE = "com.anydesk.anydeskandroid"
 private val ZEBRA_DATAWEDGE_PACKAGES = setOf("com.symbol.datawedge", "com.zebra.datawedge")

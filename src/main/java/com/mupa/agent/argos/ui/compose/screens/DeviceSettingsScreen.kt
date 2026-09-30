@@ -66,6 +66,7 @@ import com.mupa.agent.argos.BuildConfig
 import com.mupa.agent.argos.R
 import com.mupa.agent.argos.managers.ArgosCompanyDetails
 import com.mupa.agent.argos.managers.DeviceIdentityManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.managers.SupabaseDirectoryClient
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
@@ -840,7 +841,7 @@ private fun DeviceInfoCards(
         runCatching { pm.getPackageInfo(context.packageName, 0) }.getOrNull()?.longVersionCode?.toString().orEmpty()
     }
     val mplayerVersion = remember {
-        runCatching { pm.getPackageInfo("com.mupa.player.enterprise", 0) }.getOrNull()?.versionName.orEmpty()
+        runCatching { pm.getPackageInfo(PlayerAppConstants.resolvePackage(), 0) }.getOrNull()?.versionName.orEmpty()
     }
     val dpmOwner = remember { DeviceOwnerPolicyManager(context.applicationContext).isDeviceOwner(context.packageName) }
     val lastSyncMs = remember { settings.getLastCommandSyncMsCached() }

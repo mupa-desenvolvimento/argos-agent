@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.UserManager
 import android.provider.Settings
 import androidx.core.content.ContextCompat
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.ui.ArgosLauncherActivity
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -134,7 +135,7 @@ class DeviceOwnerPolicyManager(context: Context) {
         if (!isDeviceOwner(ownerPackage)) return
         grantRuntimePermissions(
             ownerPackage = ownerPackage,
-            targetPackage = MUPA_PLAYER_PACKAGE,
+            targetPackage = PlayerAppConstants.resolvePackage(),
             permissions = listOf(
                 android.Manifest.permission.CAMERA,
                 android.Manifest.permission.READ_PHONE_STATE,
@@ -478,8 +479,6 @@ class DeviceOwnerPolicyManager(context: Context) {
     }
 
     companion object {
-        private const val MUPA_PLAYER_PACKAGE = "com.mupa.player.enterprise"
-
         // System-table keys OEMs use to toggle their custom navigation bar. Only keys that
         // already exist on the device are written (see setOemNavigationBarVisible), so this
         // list is safe to grow for other enterprise OEMs.

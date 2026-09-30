@@ -53,6 +53,7 @@ import com.mupa.agent.argos.admin.LauncherManager
 import com.mupa.agent.argos.admin.WifiManager
 import com.mupa.agent.argos.R
 import com.mupa.agent.argos.launcher.WhitelistManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import com.mupa.agent.argos.security.AdminAuditLogStore
@@ -127,7 +128,7 @@ fun AdminCenterScreen(
 
         internetStatus = resolveInternet(context)
         deviceOwnerStatus = if (dpm.isDeviceOwner(context.packageName)) "🟢 Device Owner" else "🔴 Sem Device Owner"
-        mplayerStatus = if (isInstalled(context, "com.mupa.player.enterprise")) "🟢 OK" else "🔴 Não instalado"
+        mplayerStatus = if (isInstalled(context, PlayerAppConstants.resolvePackage())) "🟢 OK" else "🔴 Não instalado"
         watchdogStatus = if (isServiceRunning(context, "com.mupa.agent.argos.services.ArgosForegroundService")) "🟢 Ativo" else "🔴 Inativo"
     }
 
@@ -264,7 +265,7 @@ fun AdminCenterScreen(
                         scope.launch {
                             val required = setOf(
                                 context.packageName,
-                                "com.mupa.player.enterprise",
+                                PlayerAppConstants.resolvePackage(),
                                 "com.anydesk.anydeskandroid",
                                 "com.android.settings",
                             )
@@ -285,7 +286,7 @@ fun AdminCenterScreen(
                                 lockErr = "no_activity_context"
                             }
 
-                            val playerPkg = "com.mupa.player.enterprise"
+                            val playerPkg = PlayerAppConstants.resolvePackage()
                             val playerIntent = context.packageManager.getLaunchIntentForPackage(playerPkg)
                             if (playerIntent != null) {
                                 DeviceOwnerPolicyManager(context).tryUnsuspendApp(context.packageName, playerPkg)
@@ -335,11 +336,12 @@ fun AdminCenterScreen(
             secondary = "Abrir MPlayer" to {
                 pendingActionName = "open_player"
                 pendingAction = {
-                    val i = context.packageManager.getLaunchIntentForPackage("com.mupa.player.enterprise")
+                    val playerPkg = PlayerAppConstants.resolvePackage()
+                    val i = context.packageManager.getLaunchIntentForPackage(playerPkg)
                     if (i == null) {
                         messageDialog = "MPlayer" to "Não instalado"
                     } else {
-                        DeviceOwnerPolicyManager(context).tryUnsuspendApp(context.packageName, "com.mupa.player.enterprise")
+                        DeviceOwnerPolicyManager(context).tryUnsuspendApp(context.packageName, playerPkg)
                         val err = runCatching {
                             context.startActivity(i)
                             null
@@ -550,7 +552,7 @@ fun AdminCenterScreen(
                     pendingActionName = "restart_mplayer"
                     pendingAction = {
                         scope.launch {
-                            val pkg = "com.mupa.player.enterprise"
+                            val pkg = PlayerAppConstants.resolvePackage()
                             runCatching { tools.closeAppIfDeviceOwner(pkg) }
                             val intent = context.packageManager.getLaunchIntentForPackage(pkg)
                             if (intent == null) {
@@ -869,14 +871,19 @@ private fun AdminAuthDialog(
                                         .put("ts", System.currentTimeMillis()),
                                 )
                                 if (enableDemoMode) {
-                                    val i =
-                                        Intent("com.mupa.player.enterprise.ACTION_SET_DEV_MODE")
-                                            .setClassName(
-                                                "com.mupa.player.enterprise",
-                                                "com.mupa.player.enterprise.ui.DevModeReceiver",
-                                            )
-                                            .putExtra("enabled", true)
-                                    runCatching { context.sendBroadcast(i) }
+                                    // Dev-mode broadcast is only understood by the enterprise player's
+                                    // own receiver; the X96 build doesn't expose an equivalent, so skip
+                                    // rather than fire a broadcast at a component that doesn't exist there.
+                                    if (!PlayerAppConstants.isX96()) {
+                                        val i =
+                                            Intent("com.mupa.player.enterprise.ACTION_SET_DEV_MODE")
+                                                .setClassName(
+                                                    "com.mupa.player.enterprise",
+                                                    "com.mupa.player.enterprise.ui.DevModeReceiver",
+                                                )
+                                                .putExtra("enabled", true)
+                                        runCatching { context.sendBroadcast(i) }
+                                    }
                                 }
                                 onSuccess()
                             }

@@ -11,6 +11,7 @@ import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.os.SystemClock
 import android.content.pm.ApplicationInfo
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import kotlinx.coroutines.Dispatchers
@@ -389,8 +390,9 @@ class AutoStartManager(private val context: Context) {
 
         val ordered = LinkedHashSet<String>()
         if (preferred.isNotBlank()) ordered.add(preferred)
-        if (preferred.isBlank() && fromPolicy.any { it == "com.mupa.player.enterprise" }) {
-            ordered.add("com.mupa.player.enterprise")
+        val playerPkg = PlayerAppConstants.resolvePackage()
+        if (preferred.isBlank() && fromPolicy.any { it == playerPkg }) {
+            ordered.add(playerPkg)
         }
         fromPolicy.forEach { ordered.add(it) }
         return ordered.toList()
@@ -415,7 +417,7 @@ class KioskPolicyManager(private val context: Context) {
         if (!dpm.isDeviceOwner(self)) return "not_device_owner"
 
         val allowed = settings.getAllowedPackagesCached() + self
-        dpm.tryUnsuspendApp(self, "com.mupa.player.enterprise")
+        dpm.tryUnsuspendApp(self, PlayerAppConstants.resolveInstalledPackage(appContext))
         return dpm.updateLockTaskPackages(self, allowed)
     }
 }

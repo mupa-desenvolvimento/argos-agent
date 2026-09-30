@@ -117,6 +117,7 @@ import com.mupa.agent.argos.launcher.WhitelistManager
 import com.mupa.agent.argos.launcher.WatchdogManager
 import com.mupa.agent.argos.managers.ArgosCompanyInfo
 import com.mupa.agent.argos.managers.DeviceIdentityManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.managers.SupabaseDirectoryClient
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
@@ -151,7 +152,8 @@ import kotlin.math.roundToInt
 import java.io.File
 import java.io.FileOutputStream
 
-private const val PLAYER_PACKAGE = "com.mupa.player.enterprise"
+private val PLAYER_PACKAGE: String
+    get() = PlayerAppConstants.resolvePackage()
 private val BLOCKED_PACKAGES = setOf(
     "com.android.vending",
     "com.google.android.youtube",
@@ -641,14 +643,18 @@ fun LauncherHomeScreen(
                 pendingProtectedActionName = "mplayer_demo_mode"
                 pendingProtectedAction = {
                     val next = !mplayerDemoMode
-                    val i =
-                        Intent("com.mupa.player.enterprise.ACTION_SET_DEV_MODE")
-                            .setClassName(
-                                "com.mupa.player.enterprise",
-                                "com.mupa.player.enterprise.ui.DevModeReceiver",
-                            )
-                            .putExtra("enabled", next)
-                    runCatching { context.sendBroadcast(i) }
+                    // Dev-mode broadcast is only understood by the enterprise player's own
+                    // receiver; the X96 build doesn't expose an equivalent.
+                    if (!PlayerAppConstants.isX96()) {
+                        val i =
+                            Intent("com.mupa.player.enterprise.ACTION_SET_DEV_MODE")
+                                .setClassName(
+                                    "com.mupa.player.enterprise",
+                                    "com.mupa.player.enterprise.ui.DevModeReceiver",
+                                )
+                                .putExtra("enabled", next)
+                        runCatching { context.sendBroadcast(i) }
+                    }
                     scope.launch {
                         settings.setMplayerDemoMode(next)
                         mplayerDemoMode = next
@@ -1589,7 +1595,7 @@ private fun AppManagementBottomSheet(
                 title = if (policy.hidden) "Mostrar" else "Ocultar",
                 onClick = onToggleHidden,
             )
-            if (app.packageName == PLAYER_PACKAGE) {
+            if (app.packageName == PLAYER_PACKAGE && !PlayerAppConstants.isX96()) {
                 ActionRow(
                     icon = "flask-conical",
                     title = if (mplayerDemoMode) "Modo DEMO (consulta remota): Ativo" else "Modo DEMO (consulta remota): Desativado",

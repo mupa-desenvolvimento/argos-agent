@@ -50,6 +50,7 @@ import com.mupa.agent.argos.launcher.PersistenceManager
 import com.mupa.agent.argos.launcher.WatchdogManager
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.managers.DeviceIdentityManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import com.mupa.agent.argos.ota.OtaManager
 import com.mupa.agent.argos.provisioning.ApkInstallManager
@@ -115,6 +116,7 @@ class ArgosForegroundService : Service() {
     private var lastHeartbeatCheckMs: Long = 0L
     private var lastOperationalSweepMs: Long = 0L
     private var lastProvisioningSweepMs: Long = 0L
+    private var lastPlayerOtaCheckMs: Long = 0L
     private var recoveryOverlayEnabled: Boolean = false
     private var bootAutostartDueAtMs: Long = 0L
     private var initialAutostartDone: Boolean = false
@@ -209,6 +211,22 @@ class ArgosForegroundService : Service() {
                     if (now - lastProvisioningSweepMs >= PROVISIONING_SWEEP_INTERVAL_MS) {
                         lastProvisioningSweepMs = now
                         runCatching { ProvisioningManager(applicationContext).runIfDue() }
+                    }
+                    // allowAgentPublish só protege ESCRITA no Firebase RTDB (política ARGOS 3.0:
+                    // Firebase é só barramento de eventos, nada é persistido lá) — writeOtaState/
+                    // log/pushLocationTelemetryNow já se auto-protegem com essa flag dentro do
+                    // OtaManager. checkForPlayerUpdate()/tickIfDue() em si rodam sobre estado
+                    // LOCAL (readState/writeState/install.installLocal()) e um GET HTTP simples
+                    // pro catálogo — nada disso é "publicar no Firebase", então não deve ficar
+                    // atrás desse gate (fazia o auto-update do player nunca rodar).
+                    val otaDeviceId = DeviceIdentityManager.getPersistentDeviceId(applicationContext)
+                    if (otaDeviceId.isNotBlank()) {
+                        val otaDeviceRef = FirebaseDatabase.getInstance().getReference("m_argos/devices").child(otaDeviceId)
+                        if (now - lastPlayerOtaCheckMs >= PLAYER_OTA_CHECK_INTERVAL_MS) {
+                            lastPlayerOtaCheckMs = now
+                            runCatching { otaManager.checkForPlayerUpdate(otaDeviceId, otaDeviceRef) }
+                        }
+                        runCatching { otaManager.tickIfDue(otaDeviceId, otaDeviceRef, now) }
                     }
                     delay(computeOperationalDelayMs(now))
                 }
@@ -411,7 +429,9 @@ class ArgosForegroundService : Service() {
             .firstOrNull()
             ?.trim()
             ?.ifBlank { null }
-            ?: settings.getAutostartPackageCached().trim().ifBlank { "com.mupa.player.enterprise" }
+            ?: settings.getAutostartPackageCached().trim().ifBlank {
+                PlayerAppConstants.resolveInstalledPackage(applicationContext)
+            }
         if (targetPkg.isBlank() || targetPkg.equals(packageName, ignoreCase = true)) return
 
         val state = currentForegroundState() ?: return
@@ -436,7 +456,7 @@ class ArgosForegroundService : Service() {
         val onlineState = settings.getOfflineStateCached().trim().ifBlank { "unknown" }
         val fg = currentForegroundPackage()?.trim().orEmpty()
 
-        if (fg == "com.mupa.player.enterprise") lastForegroundPlayerMs = now
+        if (fg == PlayerAppConstants.resolvePackage()) lastForegroundPlayerMs = now
         if (fg == packageName) lastForegroundLauncherMs = now
 
         val hb = lastMainHeartbeatMs
@@ -455,7 +475,7 @@ class ArgosForegroundService : Service() {
                 lastAutoHealMs = now
                 val dpm = DeviceOwnerPolicyManager(applicationContext)
                 if (dpm.isDeviceOwner(packageName)) {
-                    val r = dpm.clearAppUserDataError(packageName, "com.mupa.player.enterprise")
+                    val r = dpm.clearAppUserDataError(packageName, PlayerAppConstants.resolvePackage())
                     emitIncidentSnapshot(reason = "memory_critical", details = r ?: "cleared_player_data")
                 } else {
                     emitIncidentSnapshot(reason = "memory_critical", details = "not_device_owner")
@@ -473,7 +493,7 @@ class ArgosForegroundService : Service() {
         if (locked && settings.isDeviceBoundCached()) {
             if (now - lastForegroundPlayerMs > 60_000L && now - lastAutoHealMs > 30_000L) {
                 lastAutoHealMs = now
-                val opened = apps.open("com.mupa.player.enterprise")
+                val opened = apps.open(PlayerAppConstants.resolveInstalledPackage(applicationContext))
                 emitIncidentSnapshot(reason = "player_missing", details = if (opened) "reopened" else "open_failed")
             }
         }
@@ -552,7 +572,7 @@ class ArgosForegroundService : Service() {
 
         val prefs = applicationContext.getSharedPreferences("argos_agent_intelligence", Context.MODE_PRIVATE)
         val am = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager ?: return
-        val packages = listOf("com.mupa.player.enterprise", packageName)
+        val packages = listOf(PlayerAppConstants.resolvePackage(), packageName)
         for (pkg in packages) {
             val lastTs = prefs.getLong("exit_last_ts_$pkg", 0L).coerceAtLeast(0L)
             val exits = runCatching { am.getHistoricalProcessExitReasons(pkg, 0, 5) }.getOrDefault(emptyList())
@@ -1545,6 +1565,9 @@ class ArgosForegroundService : Service() {
         private const val MIN_LOOP_DELAY_MS = 1_000L
         private const val OPERATIONAL_SWEEP_INTERVAL_MS = 60_000L
         private const val PROVISIONING_SWEEP_INTERVAL_MS = 60_000L
+        // Catalog check only (network round-trip); tickIfDue() runs every loop tick and
+        // self-debounces to 15s internally to actually drive an in-flight download/install.
+        private const val PLAYER_OTA_CHECK_INTERVAL_MS = 15 * 60_000L
         private const val HEARTBEAT_CHECK_INTERVAL_MS = 60_000L
         private const val COMMAND_POLL_INTERVAL_NORMAL_MS = 60_000L
         private const val COMMAND_POLL_INTERVAL_REMOTE_MS = 15_000L

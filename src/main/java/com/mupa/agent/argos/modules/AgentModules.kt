@@ -17,6 +17,7 @@ import com.mupa.agent.argos.database.ArgosDatabaseProvider
 import com.mupa.agent.argos.database.HealthSnapshotEntity
 import com.mupa.agent.argos.database.LocationHistoryEntity
 import com.mupa.agent.argos.launcher.KioskPolicyManager
+import com.mupa.agent.argos.managers.PlayerAppConstants
 import com.mupa.agent.argos.managers.SettingsManager
 import com.mupa.agent.argos.mdm.DeviceOwnerPolicyManager
 import com.mupa.agent.argos.models.AgentAppInventoryItem
@@ -71,12 +72,6 @@ class AppManager(private val context: Context) {
     }
 
     fun open(packageName: String): Boolean = apps.open(packageName)
-}
-
-class OtaManager(private val context: Context) {
-    fun triggerIfDue() {
-        // OTA 3.0 orchestration starts here; legacy OTA continues through the existing realtime pipeline.
-    }
 }
 
 class RemoteManager(private val context: Context) {
@@ -152,7 +147,7 @@ class HealthMonitor(private val context: Context) {
             uptimeSeconds = SystemClock.elapsedRealtime() / 1000L,
             agentVersion = BuildConfig.VERSION_NAME,
             agentVersionCode = BuildConfig.VERSION_CODE.toLong(),
-            mplayerVersion = installedVersion("com.mupa.player.enterprise"),
+            mplayerVersion = installedVersion(PlayerAppConstants.resolvePackage()),
             remoteVersion = installedVersion("com.mupa.argos.remote"),
         )
         db.healthSnapshotDao().insert(
